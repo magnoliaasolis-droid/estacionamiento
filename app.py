@@ -32,7 +32,7 @@ def guardar_evento(tipo, d1, d2):
     fecha = datetime.now()
 
     sql = """
-    INSERT INTO registro
+    INSERT INTO registros
     (tipo, fecha, distancia_entrada, distancia_salida, autos)
     VALUES (%s,%s,%s,%s,%s)
     """
