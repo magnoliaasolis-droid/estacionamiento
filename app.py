@@ -4,12 +4,8 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# =========================
-# CONFIG
-# =========================
 MAX_AUTOS = 20
-estado_estacionamiento = False
-autos_actuales = 0
+estado_estacionamiento = True
 
 DB_CONFIG = {
     "host": "shortline.proxy.rlwy.net",
@@ -19,12 +15,30 @@ DB_CONFIG = {
     "database": "railway"
 }
 
-# =========================
-# GUARDAR EVENTO
-# =========================
-def guardar_evento(tipo, d1, d2):
+# =============================
+# OBTENER AUTOS ACTUALES
+# =============================
+def obtener_autos():
 
-    global autos_actuales
+    conexion = mysql.connector.connect(**DB_CONFIG)
+    cursor = conexion.cursor()
+
+    cursor.execute("SELECT autos FROM registros ORDER BY id DESC LIMIT 1")
+    row = cursor.fetchone()
+
+    cursor.close()
+    conexion.close()
+
+    if row:
+        return row[0]
+    else:
+        return 0
+
+
+# =============================
+# GUARDAR EVENTO
+# =============================
+def guardar_evento(tipo, d1, d2, autos):
 
     conexion = mysql.connector.connect(**DB_CONFIG)
     cursor = conexion.cursor()
@@ -37,23 +51,23 @@ def guardar_evento(tipo, d1, d2):
     VALUES (%s,%s,%s,%s,%s)
     """
 
-    cursor.execute(sql,(tipo,fecha,d1,d2,autos_actuales))
+    cursor.execute(sql,(tipo,fecha,d1,d2,autos))
 
     conexion.commit()
     cursor.close()
     conexion.close()
 
-# =========================
+
+# =============================
 # API ESP32
-# =========================
+# =============================
 @app.route("/sensor", methods=["POST"])
 def sensor():
 
-    global autos_actuales
-    global estado_estacionamiento
-
     if not estado_estacionamiento:
         return jsonify({"accion":"cerrado"})
+
+    autos_actuales = obtener_autos()
 
     data = request.json
     tipo = data["tipo"]
@@ -67,7 +81,7 @@ def sensor():
 
         autos_actuales += 1
 
-        guardar_evento("entrada", distancia, 0)
+        guardar_evento("entrada", distancia, 0, autos_actuales)
 
         return jsonify({"accion":"abrir"})
 
@@ -77,73 +91,66 @@ def sensor():
         if autos_actuales > 0:
             autos_actuales -= 1
 
-        guardar_evento("salida", 0, distancia)
+        guardar_evento("salida", 0, distancia, autos_actuales)
 
         return jsonify({"accion":"abrir"})
 
     return jsonify({"accion":"error"})
 
-# =========================
+
+# =============================
 # CONTROLES
-# =========================
+# =============================
 @app.route("/abrir")
 def abrir():
     global estado_estacionamiento
     estado_estacionamiento = True
-    return "Estacionamiento abierto"
+    return "abierto"
 
 @app.route("/cerrar")
 def cerrar():
     global estado_estacionamiento
     estado_estacionamiento = False
-    return "Estacionamiento cerrado"
+    return "cerrado"
 
-@app.route("/reiniciar")
-def reiniciar():
-    global autos_actuales
-    autos_actuales = 0
-    return "Contador reiniciado"
 
-# =========================
-# PANEL + BUSCADOR
-# =========================
+# =============================
+# PANEL
+# =============================
 @app.route("/")
 def panel():
 
+    autos_actuales = obtener_autos()
     buscar = request.args.get("buscar")
 
-    try:
-        conexion = mysql.connector.connect(**DB_CONFIG)
-        cursor = conexion.cursor(dictionary=True)
+    conexion = mysql.connector.connect(**DB_CONFIG)
+    cursor = conexion.cursor(dictionary=True)
 
-        if buscar:
+    if buscar:
 
-            sql = """
-            SELECT * FROM registros 
-            WHERE 
-            id LIKE %s OR
-            tipo LIKE %s OR
-            fecha LIKE %s OR
-            distancia_entrada LIKE %s OR
-            distancia_salida LIKE %s OR
-            autos LIKE %s
-            ORDER BY id DESC
-            """
+        sql = """
+        SELECT * FROM registros 
+        WHERE 
+        id LIKE %s OR
+        tipo LIKE %s OR
+        fecha LIKE %s OR
+        distancia_entrada LIKE %s OR
+        distancia_salida LIKE %s OR
+        autos LIKE %s
+        ORDER BY id DESC
+        """
 
-            like = "%" + buscar + "%"
+        like = "%" + buscar + "%"
 
-            cursor.execute(sql,(like,like,like,like,like,like))
+        cursor.execute(sql,(like,like,like,like,like,like))
 
-        else:
-            cursor.execute("SELECT * FROM registros ORDER BY id DESC LIMIT 50")
+    else:
+        cursor.execute("SELECT * FROM registros ORDER BY id DESC LIMIT 50")
 
-        datos = cursor.fetchall()
+    datos = cursor.fetchall()
 
-        cursor.close()
-        conexion.close()
-
-    except Exception as e:
-        return "ERROR: " + str(e)
+    cursor.close()
+    conexion.close()
 
     estado = "ABIERTO" if estado_estacionamiento else "CERRADO"
     lleno = "LLENO" if autos_actuales >= MAX_AUTOS else "DISPONIBLE"
@@ -151,18 +158,8 @@ def panel():
     html = f"""
     <html>
     <head>
-    <meta http-equiv="refresh" content="5">
+    <meta http-equiv="refresh" content="3">
     <title>Estacionamiento</title>
-
-    <style>
-    body {{font-family:Arial;background:#f4f4f4;padding:20px}}
-    table {{background:white;border-collapse:collapse;width:100%}}
-    th,td {{padding:10px;border:1px solid #ddd;text-align:center}}
-    th {{background:#222;color:white}}
-    button {{padding:8px 15px;margin:5px}}
-    input {{padding:8px}}
-    </style>
-
     </head>
 
     <body>
@@ -175,20 +172,19 @@ def panel():
 
     <br>
 
-    <a href="/abrir"><button>Abrir</button></a>
-    <a href="/cerrar"><button>Cerrar</button></a>
-    <a href="/reiniciar"><button>Reiniciar</button></a>
+    <a href="/abrir">Abrir</a>
+    <a href="/cerrar">Cerrar</a>
 
     <br><br>
 
     <form method="GET">
-        <input type="text" name="buscar" placeholder="Buscar ID, fecha, tipo...">
-        <button type="submit">Buscar</button>
+    <input name="buscar" placeholder="Buscar...">
+    <button>Buscar</button>
     </form>
 
     <br>
 
-    <table>
+    <table border="1">
     <tr>
     <th>ID</th>
     <th>Tipo</th>
