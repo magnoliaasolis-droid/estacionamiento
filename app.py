@@ -116,64 +116,34 @@ def reiniciar():
 @app.route("/")
 def panel():
 
-    conexion = mysql.connector.connect(**DB_CONFIG)
-    cursor = conexion.cursor(dictionary=True)
+    try:
+        conexion = mysql.connector.connect(**DB_CONFIG)
+        cursor = conexion.cursor(dictionary=True)
 
-    cursor.execute("SELECT * FROM registro ORDER BY id DESC LIMIT 50")
-    datos = cursor.fetchall()
+        cursor.execute("SELECT * FROM registro ORDER BY id DESC LIMIT 50")
+        datos = cursor.fetchall()
 
-    cursor.close()
-    conexion.close()
+        cursor.close()
+        conexion.close()
+
+    except Exception as e:
+        return str(e)
 
     estado = "ABIERTO" if estado_estacionamiento else "CERRADO"
     lleno = "LLENO" if autos_actuales >= MAX_AUTOS else "DISPONIBLE"
 
     html = f"""
-    <html>
-    <head>
-    <meta http-equiv="refresh" content="3">
-    <title>Estacionamiento</title>
-    </head>
-
-    <body>
-
-    <h1>ESTACIONAMIENTO</h1>
-
+    <h1>Estacionamiento</h1>
     <h2>Estado: {estado}</h2>
     <h2>Autos: {autos_actuales}/{MAX_AUTOS}</h2>
     <h2>{lleno}</h2>
 
-    <br>
-
-    <a href="/abrir">ABRIR</a>
-    <a href="/cerrar">CERRAR</a>
-    <a href="/reiniciar">REINICIAR</a>
-
-    <br><br>
-
-    <table border="1">
-    <tr>
-    <th>ID</th>
-    <th>Tipo</th>
-    <th>Fecha</th>
-    <th>Entrada</th>
-    <th>Salida</th>
-    <th>Autos</th>
-    </tr>
+    <a href="/abrir">ABRIR</a><br>
+    <a href="/cerrar">CERRAR</a><br>
+    <a href="/reiniciar">REINICIAR</a><br><br>
     """
 
     for d in datos:
-        html += f"""
-        <tr>
-        <td>{d['id']}</td>
-        <td>{d['tipo']}</td>
-        <td>{d['fecha']}</td>
-        <td>{d['distancia_entrada']}</td>
-        <td>{d['distancia_salida']}</td>
-        <td>{d['autos']}</td>
-        </tr>
-        """
-
-    html += "</table></body></html>"
+        html += f"{d['id']} - {d['tipo']} - {d['autos']}<br>"
 
     return html
