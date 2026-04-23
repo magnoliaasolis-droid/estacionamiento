@@ -119,7 +119,7 @@ def panel():
         conexion = mysql.connector.connect(**DB_CONFIG)
         cursor = conexion.cursor()
 
-        cursor.execute("SELECT COUNT(*) FROM registro")
+        cursor.execute("SELECT COUNT(*) FROM registros")
         total = cursor.fetchone()[0]
 
         cursor.close()
