@@ -119,13 +119,13 @@ def panel():
         conexion = mysql.connector.connect(**DB_CONFIG)
         cursor = conexion.cursor()
 
-        cursor.execute("SELECT COUNT(*) FROM registros")
-        total = cursor.fetchone()[0]
+        cursor.execute("SHOW TABLES")
+        tablas = cursor.fetchall()
 
         cursor.close()
         conexion.close()
 
-        return f"Conexion OK - filas: {total}"
+        return str(tablas)
 
     except Exception as e:
         return "ERROR: " + str(e)
