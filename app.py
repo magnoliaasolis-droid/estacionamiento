@@ -31,7 +31,7 @@ def ver():
         conexion = mysql.connector.connect(**DB_CONFIG)
         cursor = conexion.cursor(dictionary=True)
 
-        cursor.execute("SELECT * FROM registro")
+        cursor.execute("SELECT * FROM registros")
         datos = cursor.fetchall()
 
         cursor.close()
