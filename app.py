@@ -10,7 +10,7 @@ def inicio():
             host="shortline.proxy.rlwy.net",
             user="root",
             password="fHLnKJtzHfArjeDLubPQmnntlJrTOTYt",
-            database="estacionamiento"
+            database="registros"
         )
 
         return "Conectado a MySQL desde Render"
