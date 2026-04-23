@@ -116,11 +116,32 @@ def reiniciar():
 @app.route("/")
 def panel():
 
+    buscar = request.args.get("buscar")
+
     try:
         conexion = mysql.connector.connect(**DB_CONFIG)
         cursor = conexion.cursor(dictionary=True)
 
-        cursor.execute("SELECT * FROM registros ORDER BY id DESC LIMIT 50")
+        if buscar:
+            sql = """
+            SELECT * FROM registros 
+            WHERE 
+            id LIKE %s OR
+            tipo LIKE %s OR
+            fecha LIKE %s OR
+            distancia_entrada LIKE %s OR
+            distancia_salida LIKE %s OR
+            autos LIKE %s
+            ORDER BY id DESC
+            """
+
+            like = "%" + buscar + "%"
+
+            cursor.execute(sql,(like,like,like,like,like,like))
+
+        else:
+            cursor.execute("SELECT * FROM registros ORDER BY id DESC LIMIT 50")
+
         datos = cursor.fetchall()
 
         cursor.close()
@@ -135,7 +156,7 @@ def panel():
     html = f"""
     <html>
     <head>
-    <meta http-equiv="refresh" content="3">
+    <meta http-equiv="refresh" content="5">
     <title>Estacionamiento</title>
     </head>
 
@@ -149,11 +170,18 @@ def panel():
 
     <br>
 
-    <a href="/abrir">ABRIR</a><br>
-    <a href="/cerrar">CERRAR</a><br>
+    <a href="/abrir">ABRIR</a>
+    <a href="/cerrar">CERRAR</a>
     <a href="/reiniciar">REINICIAR</a>
 
     <br><br>
+
+    <form method="GET">
+        <input type="text" name="buscar" placeholder="Buscar..." />
+        <button type="submit">Buscar</button>
+    </form>
+
+    <br>
 
     <table border="1">
     <tr>
