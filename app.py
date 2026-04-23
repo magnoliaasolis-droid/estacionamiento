@@ -13,10 +13,9 @@ def testdb():
         conexion = mysql.connector.connect(
             host="shortline.proxy.rlwy.net",
             user="root",
-            port="47707",
+            port=47707,
             password="fHLnKJtzHfArjeDLubPQmnntlJrTOTYt",
             database="railway"
-            connection_timeout=5
         )
 
         return "Conectado a MySQL desde Render"
