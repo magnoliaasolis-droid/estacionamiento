@@ -7,9 +7,9 @@ app = Flask(__name__)
 def inicio():
     try:
         conexion = mysql.connector.connect(
-            host="localhost",
+            host="shortline.proxy.rlwy.net",
             user="root",
-            password="Magno",
+            password="fHLnKJtzHfArjeDLubPQmnntlJrTOTYt",
             database="ESTACIONAMIENTO"
         )
 
