@@ -7,10 +7,10 @@ app = Flask(__name__)
 def inicio():
     try:
         conexion = mysql.connector.connect(
-            host="TU_HOST",
-            user="TU_USUARIO",
-            password="TU_PASSWORD",
-            database="TU_DB"
+            host="localhost",
+            user="root",
+            password="Magno",
+            database="ESTACIONAMIENTO"
         )
 
         return "Conectado a MySQL desde Render"
