@@ -115,35 +115,17 @@ def reiniciar():
 # =========================
 @app.route("/")
 def panel():
-
     try:
         conexion = mysql.connector.connect(**DB_CONFIG)
-        cursor = conexion.cursor(dictionary=True)
+        cursor = conexion.cursor()
 
-        cursor.execute("SELECT * FROM registro ORDER BY id DESC LIMIT 50")
-        datos = cursor.fetchall()
+        cursor.execute("SELECT COUNT(*) FROM registro")
+        total = cursor.fetchone()[0]
 
         cursor.close()
         conexion.close()
 
+        return f"Conexion OK - filas: {total}"
+
     except Exception as e:
-        return str(e)
-
-    estado = "ABIERTO" if estado_estacionamiento else "CERRADO"
-    lleno = "LLENO" if autos_actuales >= MAX_AUTOS else "DISPONIBLE"
-
-    html = f"""
-    <h1>Estacionamiento</h1>
-    <h2>Estado: {estado}</h2>
-    <h2>Autos: {autos_actuales}/{MAX_AUTOS}</h2>
-    <h2>{lleno}</h2>
-
-    <a href="/abrir">ABRIR</a><br>
-    <a href="/cerrar">CERRAR</a><br>
-    <a href="/reiniciar">REINICIAR</a><br><br>
-    """
-
-    for d in datos:
-        html += f"{d['id']} - {d['tipo']} - {d['autos']}<br>"
-
-    return html
+        return "ERROR: " + str(e)
