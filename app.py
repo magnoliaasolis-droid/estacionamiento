@@ -1,10 +1,19 @@
 from flask import Flask
+import mysql.connector
 
 app = Flask(__name__)
 
 @app.route("/")
 def inicio():
-    return "Servidor funcionando"
+    try:
+        conexion = mysql.connector.connect(
+            host="TU_HOST",
+            user="TU_USUARIO",
+            password="TU_PASSWORD",
+            database="TU_DB"
+        )
 
-if __name__ == "__main__":
-    app.run()
+        return "Conectado a MySQL desde Render"
+
+    except Exception as e:
+        return str(e)
