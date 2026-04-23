@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify
 import mysql.connector
 from datetime import datetime
@@ -60,7 +59,7 @@ def sensor():
     tipo = data["tipo"]
     distancia = data["distancia"]
 
-    # ================= ENTRADA
+    # ENTRADA
     if tipo == "entrada":
 
         if autos_actuales >= MAX_AUTOS:
@@ -72,7 +71,7 @@ def sensor():
 
         return jsonify({"accion":"abrir"})
 
-    # ================= SALIDA
+    # SALIDA
     if tipo == "salida":
 
         if autos_actuales > 0:
@@ -85,7 +84,7 @@ def sensor():
     return jsonify({"accion":"error"})
 
 # =========================
-# ABRIR
+# CONTROLES
 # =========================
 @app.route("/abrir")
 def abrir():
@@ -93,18 +92,12 @@ def abrir():
     estado_estacionamiento = True
     return "Estacionamiento abierto"
 
-# =========================
-# CERRAR
-# =========================
 @app.route("/cerrar")
 def cerrar():
     global estado_estacionamiento
     estado_estacionamiento = False
     return "Estacionamiento cerrado"
 
-# =========================
-# REINICIAR
-# =========================
 @app.route("/reiniciar")
 def reiniciar():
     global autos_actuales
@@ -112,16 +105,38 @@ def reiniciar():
     return "Contador reiniciado"
 
 # =========================
-# PANEL WEB
+# PANEL + BUSCADOR
 # =========================
 @app.route("/")
 def panel():
+
+    buscar = request.args.get("buscar")
 
     try:
         conexion = mysql.connector.connect(**DB_CONFIG)
         cursor = conexion.cursor(dictionary=True)
 
-        cursor.execute("SELECT * FROM registros ORDER BY id DESC LIMIT 50")
+        if buscar:
+
+            sql = """
+            SELECT * FROM registros 
+            WHERE 
+            id LIKE %s OR
+            tipo LIKE %s OR
+            fecha LIKE %s OR
+            distancia_entrada LIKE %s OR
+            distancia_salida LIKE %s OR
+            autos LIKE %s
+            ORDER BY id DESC
+            """
+
+            like = "%" + buscar + "%"
+
+            cursor.execute(sql,(like,like,like,like,like,like))
+
+        else:
+            cursor.execute("SELECT * FROM registros ORDER BY id DESC LIMIT 50")
+
         datos = cursor.fetchall()
 
         cursor.close()
@@ -136,8 +151,18 @@ def panel():
     html = f"""
     <html>
     <head>
-    <meta http-equiv="refresh" content="3">
+    <meta http-equiv="refresh" content="5">
     <title>Estacionamiento</title>
+
+    <style>
+    body {{font-family:Arial;background:#f4f4f4;padding:20px}}
+    table {{background:white;border-collapse:collapse;width:100%}}
+    th,td {{padding:10px;border:1px solid #ddd;text-align:center}}
+    th {{background:#222;color:white}}
+    button {{padding:8px 15px;margin:5px}}
+    input {{padding:8px}}
+    </style>
+
     </head>
 
     <body>
@@ -150,13 +175,20 @@ def panel():
 
     <br>
 
-    <a href="/abrir">ABRIR</a><br>
-    <a href="/cerrar">CERRAR</a><br>
-    <a href="/reiniciar">REINICIAR</a>
+    <a href="/abrir"><button>Abrir</button></a>
+    <a href="/cerrar"><button>Cerrar</button></a>
+    <a href="/reiniciar"><button>Reiniciar</button></a>
 
     <br><br>
 
-    <table border="1">
+    <form method="GET">
+        <input type="text" name="buscar" placeholder="Buscar ID, fecha, tipo...">
+        <button type="submit">Buscar</button>
+    </form>
+
+    <br>
+
+    <table>
     <tr>
     <th>ID</th>
     <th>Tipo</th>
