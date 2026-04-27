@@ -86,7 +86,7 @@ def guardar_evento(tipo, d1, d2, autos_dia):
     conexion = mysql.connector.connect(**DB_CONFIG)
     cursor = conexion.cursor()
 
-    fecha = datetime.now() - timedelta(hora=6)
+    fecha = datetime.now()
 
     sql = """
     INSERT INTO registros
@@ -279,11 +279,12 @@ def panel():
     """
 
     for d in datos:
+        fecha = d['fecha'] - timedelta(hours=6)
         html += f"""
         <tr>
         <td>{d['id']}</td>
         <td>{d['tipo']}</td>
-        <td>{d['fecha']}</td>
+        <td>{fecha}</td>
         <td>{d['distancia_entrada']}</td>
         <td>{d['distancia_salida']}</td>
         <td>{d['autos']}</td>
