@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import mysql.connector
-from datetime import datetime
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -86,7 +86,7 @@ def guardar_evento(tipo, d1, d2, autos_dia):
     conexion = mysql.connector.connect(**DB_CONFIG)
     cursor = conexion.cursor()
 
-    fecha = datetime.now()
+    fecha = datetime.now() - timedelta(hora=6)
 
     sql = """
     INSERT INTO registros
