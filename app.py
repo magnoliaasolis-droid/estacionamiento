@@ -86,7 +86,7 @@ def guardar_evento(tipo, d1, d2, autos_dia):
     conexion = mysql.connector.connect(**DB_CONFIG)
     cursor = conexion.cursor()
 
-    fecha=datetime.now() - timedelta(hours=6)
+    fecha = datetime.now() - timedelta(hours=6)
     
     sql = """
     INSERT INTO registros
