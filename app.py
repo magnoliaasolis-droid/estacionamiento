@@ -24,33 +24,32 @@ def obtener_autos_actuales():
     cursor = conexion.cursor()
 
     cursor.execute("""
-        SELECT tipo FROM registros ORDER BY id ASC
+        SELECT SUM(valor) FROM (
+            SELECT 
+                CASE 
+                    WHEN tipo='entrada' THEN 1
+                    WHEN tipo='salida' THEN -1
+                    WHEN tipo='reset_actuales' THEN 0
+                    ELSE 0
+                END as valor
+            FROM registros
+            WHERE id >= (
+                SELECT IFNULL(MAX(id),0)
+                FROM registros
+                WHERE tipo='reset_actuales'
+            )
+        ) t
     """)
 
-    filas = cursor.fetchall()
+    row = cursor.fetchone()
 
     cursor.close()
     conexion.close()
 
-    total = 0
+    if row[0] is None:
+        return 0
 
-    for f in filas:
-
-        tipo = f[0]
-
-        if tipo == "entrada":
-            total += 1
-
-        elif tipo == "salida":
-            total -= 1
-
-        elif tipo == "reset_actuales":
-            total = 0
-
-    if total < 0:
-        total = 0
-
-    return total
+    return int(row[0])
 # =============================
 # AUTOS DEL DIA
 # =============================
@@ -60,27 +59,21 @@ def obtener_autos_dia():
     cursor = conexion.cursor()
 
     cursor.execute("""
-        SELECT tipo FROM registros ORDER BY id ASC
+        SELECT autos 
+        FROM registros 
+        ORDER BY id DESC 
+        LIMIT 1
     """)
 
-    filas = cursor.fetchall()
+    row = cursor.fetchone()
 
     cursor.close()
     conexion.close()
 
-    total = 0
-
-    for f in filas:
-
-        tipo = f[0]
-
-        if tipo == "entrada":
-            total += 1
-
-        elif tipo == "reinicio_dia":
-            total = 0
-
-    return total
+    if row:
+        return row[0]
+    else:
+        return 0
 # =============================
 # GUARDAR EVENTO
 # =============================
