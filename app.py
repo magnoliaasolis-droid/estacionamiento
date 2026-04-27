@@ -16,7 +16,7 @@ DB_CONFIG = {
 }
 
 # =============================
-# AUTOS ACTUALES (entrada-salida)
+# AUTOS ACTUALES
 # =============================
 def obtener_autos_actuales():
 
@@ -24,10 +24,21 @@ def obtener_autos_actuales():
     cursor = conexion.cursor()
 
     cursor.execute("""
-        SELECT 
-        SUM(CASE WHEN tipo='entrada' THEN 1 ELSE 0 END) -
-        SUM(CASE WHEN tipo='salida' THEN 1 ELSE 0 END)
-        FROM registros
+        SELECT SUM(valor) FROM (
+            SELECT 
+                CASE 
+                    WHEN tipo='entrada' THEN 1
+                    WHEN tipo='salida' THEN -1
+                    WHEN tipo='reset_actuales' THEN 0
+                    ELSE 0
+                END as valor
+            FROM registros
+            WHERE id >= (
+                SELECT IFNULL(MAX(id),0)
+                FROM registros
+                WHERE tipo='reset_actuales'
+            )
+        ) t
     """)
 
     row = cursor.fetchone()
@@ -38,11 +49,11 @@ def obtener_autos_actuales():
     if row[0] is None:
         return 0
 
-    return row[0]
+    return int(row[0])
 
 
 # =============================
-# AUTOS DEL DIA (columna autos)
+# AUTOS DEL DIA
 # =============================
 def obtener_autos_dia():
 
@@ -137,6 +148,7 @@ def abrir():
     estado_estacionamiento = True
     return "abierto"
 
+
 @app.route("/cerrar")
 def cerrar():
     global estado_estacionamiento
@@ -148,17 +160,32 @@ def cerrar():
 def reiniciar_dia():
 
     guardar_evento(
-        "reinicio",
+        "reinicio_dia",
         0,
         0,
         0
     )
 
-    return "reiniciado"
+    return "reiniciado dia"
+
+
+@app.route("/reiniciar_actuales")
+def reiniciar_actuales():
+
+    autos_dia = obtener_autos_dia()
+
+    guardar_evento(
+        "reset_actuales",
+        0,
+        0,
+        autos_dia
+    )
+
+    return "reiniciado actuales"
 
 
 # =============================
-# PANEL
+# PANEL WEB
 # =============================
 @app.route("/")
 def panel():
@@ -203,6 +230,16 @@ def panel():
     <head>
     <meta http-equiv="refresh" content="3">
     <title>Estacionamiento</title>
+
+    <style>
+    body {{font-family:Arial;background:#f4f4f4;padding:20px}}
+    table {{background:white;border-collapse:collapse;width:100%}}
+    th,td {{padding:10px;border:1px solid #ddd;text-align:center}}
+    th {{background:#222;color:white}}
+    button {{padding:8px 15px;margin:5px}}
+    input {{padding:8px}}
+    </style>
+
     </head>
 
     <body>
@@ -216,9 +253,10 @@ def panel():
 
     <br>
 
-    <a href="/abrir">Abrir</a>
-    <a href="/cerrar">Cerrar</a>
-    <a href="/reiniciar_dia">Reiniciar dia</a>
+    <a href="/abrir"><button>Abrir</button></a>
+    <a href="/cerrar"><button>Cerrar</button></a>
+    <a href="/reiniciar_dia"><button>Reiniciar dia</button></a>
+    <a href="/reiniciar_actuales"><button>Reiniciar actuales</button></a>
 
     <br><br>
 
@@ -229,14 +267,14 @@ def panel():
 
     <br>
 
-    <table border="1">
+    <table>
     <tr>
     <th>ID</th>
     <th>Tipo</th>
     <th>Fecha</th>
     <th>Entrada</th>
     <th>Salida</th>
-    <th>Autos dia</th>
+    <th>Autos Dia</th>
     </tr>
     """
 
