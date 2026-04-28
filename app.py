@@ -23,33 +23,31 @@ def obtener_autos_actuales():
     conexion = mysql.connector.connect(**DB_CONFIG)
     cursor = conexion.cursor()
 
-    cursor.execute("""
-        SELECT SUM(valor) FROM (
-            SELECT 
-                CASE 
-                    WHEN tipo='entrada' THEN 1
-                    WHEN tipo='salida' THEN -1
-                    WHEN tipo='reset_actuales' THEN 0
-                    ELSE 0
-                END as valor
-            FROM registros
-            WHERE id >= (
-                SELECT IFNULL(MAX(id),0)
-                FROM registros
-                WHERE tipo='reset_actuales'
-            )
-        ) t
-    """)
-
-    row = cursor.fetchone()
+    cursor.execute("SELECT tipo FROM registros ORDER BY id ASC")
+    filas = cursor.fetchall()
 
     cursor.close()
     conexion.close()
 
-    if row[0] is None:
-        return 0
+    total = 0
 
-    return int(row[0])
+    for f in filas:
+
+        if f[0] == "entrada":
+            total += 1
+
+        elif f[0] == "salida":
+            total -= 1
+
+        elif f[0] == "reset_actuales":
+            total = 0
+
+    if total < 0:
+        total = 0
+
+    return total
+
+
 # =============================
 # AUTOS DEL DIA
 # =============================
@@ -59,10 +57,8 @@ def obtener_autos_dia():
     cursor = conexion.cursor()
 
     cursor.execute("""
-        SELECT autos 
-        FROM registros 
-        ORDER BY id DESC 
-        LIMIT 1
+        SELECT autos FROM registros 
+        ORDER BY id DESC LIMIT 1
     """)
 
     row = cursor.fetchone()
@@ -74,6 +70,8 @@ def obtener_autos_dia():
         return row[0]
     else:
         return 0
+
+
 # =============================
 # GUARDAR EVENTO
 # =============================
@@ -103,6 +101,8 @@ def guardar_evento(tipo, d1, d2, autos_dia):
 @app.route("/sensor", methods=["POST"])
 def sensor():
 
+    global estado_estacionamiento
+
     if not estado_estacionamiento:
         return jsonify({"accion":"cerrado"})
 
@@ -113,7 +113,6 @@ def sensor():
     tipo = data["tipo"]
     distancia = data["distancia"]
 
-    # ENTRADA
     if tipo == "entrada":
 
         if autos_actuales >= MAX_AUTOS:
@@ -125,7 +124,6 @@ def sensor():
 
         return jsonify({"accion":"abrir"})
 
-    # SALIDA
     if tipo == "salida":
 
         guardar_evento("salida", 0, distancia, autos_dia)
@@ -181,7 +179,7 @@ def reiniciar_actuales():
 
 
 # =============================
-# PANEL WEB
+# PANEL
 # =============================
 @app.route("/")
 def panel():
@@ -275,7 +273,9 @@ def panel():
     """
 
     for d in datos:
+
         fecha = d['fecha'] - timedelta(hours=6)
+
         html += f"""
         <tr>
         <td>{d['id']}</td>
@@ -290,3 +290,7 @@ def panel():
     html += "</table></body></html>"
 
     return html
+
+
+if __name__ == "__main__":
+    app.run()
