@@ -5,319 +5,184 @@ from datetime import datetime, timedelta
 app = Flask(__name__)
 
 MAX_AUTOS = 20
-estado_estacionamiento = True
+estado = True
 
-DB_CONFIG = {
-    "host": "shortline.proxy.rlwy.net",
-    "port": 47707,
-    "user": "root",
-    "password": "fHLnKJtzHfArjeDLubPQmnntlJrTOTYt",
-    "database": "railway"
+DB = {
+    "host":"shortline.proxy.rlwy.net",
+    "port":47707,
+    "user":"root",
+    "password":"fHLnKJtzHfArjeDLubPQmnntlJrTOTYt",
+    "database":"railway"
 }
 
-# =============================
-# AUTOS ACTUALES
-# =============================
-def obtener_autos_actuales():
+# ========================
+def query(sql,val=None):
+    con=mysql.connector.connect(**DB)
+    cur=con.cursor(dictionary=True)
 
-    conexion = mysql.connector.connect(**DB_CONFIG)
-    cursor = conexion.cursor()
-
-    cursor.execute("SELECT tipo FROM registros ORDER BY id ASC")
-    filas = cursor.fetchall()
-
-    cursor.close()
-    conexion.close()
-
-    total = 0
-
-    for f in filas:
-
-        if f[0] == "entrada":
-            total += 1
-
-        elif f[0] == "salida":
-            total -= 1
-
-        elif f[0] == "reset_actuales":
-            total = 0
-
-    if total < 0:
-        total = 0
-
-    return total
-
-
-# =============================
-# AUTOS DEL DIA
-# =============================
-def obtener_autos_dia():
-
-    conexion = mysql.connector.connect(**DB_CONFIG)
-    cursor = conexion.cursor()
-
-    cursor.execute("""
-        SELECT autos FROM registros 
-        ORDER BY id DESC LIMIT 1
-    """)
-
-    row = cursor.fetchone()
-
-    cursor.close()
-    conexion.close()
-
-    if row:
-        return row[0]
+    if val:
+        cur.execute(sql,val)
     else:
-        return 0
+        cur.execute(sql)
 
+    try:
+        data=cur.fetchall()
+    except:
+        data=None
 
-# =============================
-# GUARDAR EVENTO
-# =============================
-def guardar_evento(tipo, d1, d2, autos_dia):
+    con.commit()
+    cur.close()
+    con.close()
 
-    conexion = mysql.connector.connect(**DB_CONFIG)
-    cursor = conexion.cursor()
+    return data
 
-    fecha = datetime.now()
+# ========================
+def autos_actuales():
 
-    sql = """
+    filas=query("SELECT tipo FROM registros ORDER BY id")
+
+    t=0
+    for f in filas:
+        if f["tipo"]=="entrada": t+=1
+        elif f["tipo"]=="salida": t-=1
+        elif f["tipo"]=="reset_actuales": t=0
+
+    return max(t,0)
+
+# ========================
+def autos_dia():
+    r=query("SELECT autos FROM registros ORDER BY id DESC LIMIT 1")
+    return r[0]["autos"] if r else 0
+
+# ========================
+def guardar(tipo,e,s,a):
+    query("""
     INSERT INTO registros
-    (tipo, fecha, distancia_entrada, distancia_salida, autos)
-    VALUES (%s,%s,%s,%s,%s)
-    """
+    (tipo,fecha,distancia_entrada,distancia_salida,autos)
+    VALUES(%s,%s,%s,%s,%s)
+    """,(tipo,datetime.now(),e,s,a))
 
-    cursor.execute(sql,(tipo,fecha,d1,d2,autos_dia))
-
-    conexion.commit()
-    cursor.close()
-    conexion.close()
-
-
-# =============================
-# API ESP32
-# =============================
-@app.route("/sensor", methods=["POST"])
+# ========================
+@app.route("/sensor",methods=["POST"])
 def sensor():
 
-    global estado_estacionamiento
+    global estado
 
-    if not estado_estacionamiento:
+    if not estado:
         return jsonify({"accion":"cerrado"})
 
-    autos_actuales = obtener_autos_actuales()
-    autos_dia = obtener_autos_dia()
+    data=request.json
+    tipo=data["tipo"]
+    d=data["distancia"]
 
-    data = request.json
-    tipo = data["tipo"]
-    distancia = data["distancia"]
+    actuales=autos_actuales()
+    dia=autos_dia()
 
-    if tipo == "entrada":
+    if tipo=="entrada":
 
-        if autos_actuales >= MAX_AUTOS:
+        if actuales>=MAX_AUTOS:
             return jsonify({"accion":"lleno"})
 
-        autos_dia += 1
-
-        guardar_evento("entrada", distancia, 0, autos_dia)
-
+        guardar("entrada",d,0,dia+1)
         return jsonify({"accion":"abrir"})
 
-    if tipo == "salida":
-
-        guardar_evento("salida", 0, distancia, autos_dia)
-
+    if tipo=="salida":
+        guardar("salida",0,d,dia)
         return jsonify({"accion":"abrir"})
 
     return jsonify({"accion":"error"})
 
-
-# =============================
-# CONTROLES
-# =============================
+# ========================
 @app.route("/abrir")
 def abrir():
-    global estado_estacionamiento
-    estado_estacionamiento = True
-    return "abierto"
-
+    global estado
+    estado=True
+    return "ok"
 
 @app.route("/cerrar")
 def cerrar():
-    global estado_estacionamiento
-    estado_estacionamiento = False
-    return "cerrado"
-
+    global estado
+    estado=False
+    return "ok"
 
 @app.route("/reiniciar_dia")
 def reiniciar_dia():
-
-    try:
-        conexion = mysql.connector.connect(**DB_CONFIG)
-        cursor = conexion.cursor()
-
-        fecha = datetime.now()
-
-        sql = """
-        INSERT INTO registros
-        (tipo, fecha, distancia_entrada, distancia_salida, autos)
-        VALUES (%s,%s,%s,%s,%s)
-        """
-
-        cursor.execute(sql,("reinicio_dia",fecha,0,0,0))
-
-        conexion.commit()
-        cursor.close()
-        conexion.close()
-
-        return "reiniciado dia"
-
-    except Exception as e:
-        return str(e)
-
+    guardar("reinicio_dia",0,0,0)
+    return "ok"
 
 @app.route("/reiniciar_actuales")
 def reiniciar_actuales():
+    guardar("reset_actuales",0,0,autos_dia())
+    return "ok"
 
-    try:
-        autos_dia = obtener_autos_dia()
-
-        conexion = mysql.connector.connect(**DB_CONFIG)
-        cursor = conexion.cursor()
-
-        fecha = datetime.now()
-
-        sql = """
-        INSERT INTO registros
-        (tipo, fecha, distancia_entrada, distancia_salida, autos)
-        VALUES (%s,%s,%s,%s,%s)
-        """
-
-        cursor.execute(sql,("reset_actuales",fecha,0,0,autos_dia))
-
-        conexion.commit()
-        cursor.close()
-        conexion.close()
-
-        return "reiniciado actuales"
-
-    except Exception as e:
-        return str(e)
-
-# =============================
-# PANEL
-# =============================
+# ========================
 @app.route("/")
 def panel():
 
-    autos_actuales = obtener_autos_actuales()
-    autos_dia = obtener_autos_dia()
+    actuales=autos_actuales()
+    dia=autos_dia()
 
-    buscar = request.args.get("buscar")
+    b=request.args.get("buscar")
 
-    conexion = mysql.connector.connect(**DB_CONFIG)
-    cursor = conexion.cursor(dictionary=True)
-
-    if buscar:
-
-        sql = """
-        SELECT * FROM registros 
-        WHERE 
-        id LIKE %s OR
-        tipo LIKE %s OR
-        fecha LIKE %s OR
-        autos LIKE %s
+    if b:
+        datos=query("""
+        SELECT * FROM registros
+        WHERE id LIKE %s OR tipo LIKE %s OR fecha LIKE %s
         ORDER BY id DESC
-        """
-
-        like = "%" + buscar + "%"
-
-        cursor.execute(sql,(like,like,like,like))
-
+        """,("%"+b+"%","%"+b+"%","%"+b+"%"))
     else:
-        cursor.execute("SELECT * FROM registros ORDER BY id DESC LIMIT 50")
+        datos=query("SELECT * FROM registros ORDER BY id DESC LIMIT 50")
 
-    datos = cursor.fetchall()
-
-    cursor.close()
-    conexion.close()
-
-    estado = "ABIERTO" if estado_estacionamiento else "CERRADO"
-    lleno = "LLENO" if autos_actuales >= MAX_AUTOS else "DISPONIBLE"
-
-    html = f"""
+    html=f"""
     <html>
-    <head>
     <meta http-equiv="refresh" content="3">
-    <title>Estacionamiento</title>
+    <h1>Estacionamiento</h1>
 
-    <style>
-    body {{font-family:Arial;background:#f4f4f4;padding:20px}}
-    table {{background:white;border-collapse:collapse;width:100%}}
-    th,td {{padding:10px;border:1px solid #ddd;text-align:center}}
-    th {{background:#222;color:white}}
-    button {{padding:8px 15px;margin:5px}}
-    input {{padding:8px}}
-    </style>
+    Estado: {"ABIERTO" if estado else "CERRADO"}<br>
+    Autos actuales: {actuales}/{MAX_AUTOS}<br>
+    Autos dia: {dia}<br><br>
 
-    </head>
-
-    <body>
-
-    <h1>ESTACIONAMIENTO</h1>
-
-    <h2>Estado: {estado}</h2>
-    <h2>Autos actuales: {autos_actuales}/{MAX_AUTOS}</h2>
-    <h2>Autos del dia: {autos_dia}</h2>
-    <h2>{lleno}</h2>
-
-    <br>
-
-    <a href="/abrir"><button>Abrir</button></a>
-    <a href="/cerrar"><button>Cerrar</button></a>
-    <a href="/reiniciar_dia"><button>Reiniciar dia</button></a>
-    <a href="/reiniciar_actuales"><button>Reiniciar actuales</button></a>
+    <a href=/abrir>Abrir</a>
+    <a href=/cerrar>Cerrar</a>
+    <a href=/reiniciar_dia>Reiniciar dia</a>
+    <a href=/reiniciar_actuales>Reiniciar actuales</a>
 
     <br><br>
 
-    <form method="GET">
-    <input name="buscar" placeholder="Buscar...">
+    <form>
+    <input name=buscar>
     <button>Buscar</button>
     </form>
 
-    <br>
-
-    <table>
+    <table border=1>
     <tr>
     <th>ID</th>
     <th>Tipo</th>
     <th>Fecha</th>
     <th>Entrada</th>
     <th>Salida</th>
-    <th>Autos Dia</th>
+    <th>Autos</th>
     </tr>
     """
 
     for d in datos:
 
-        fecha = d['fecha'] - timedelta(hours=6)
+        f=d["fecha"]-timedelta(hours=6)
 
-        html += f"""
+        html+=f"""
         <tr>
         <td>{d['id']}</td>
         <td>{d['tipo']}</td>
-        <td>{fecha}</td>
+        <td>{f}</td>
         <td>{d['distancia_entrada']}</td>
         <td>{d['distancia_salida']}</td>
         <td>{d['autos']}</td>
         </tr>
         """
 
-    html += "</table></body></html>"
+    html+="</table></html>"
 
     return html
 
-
-if __name__ == "__main__":
+if __name__=="__main__":
     app.run()
