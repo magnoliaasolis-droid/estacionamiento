@@ -153,30 +153,57 @@ def cerrar():
 @app.route("/reiniciar_dia")
 def reiniciar_dia():
 
-    guardar_evento(
-        "reinicio_dia",
-        0,
-        0,
-        0
-    )
+    try:
+        conexion = mysql.connector.connect(**DB_CONFIG)
+        cursor = conexion.cursor()
 
-    return "reiniciado dia"
+        fecha = datetime.now()
+
+        sql = """
+        INSERT INTO registros
+        (tipo, fecha, distancia_entrada, distancia_salida, autos)
+        VALUES (%s,%s,%s,%s,%s)
+        """
+
+        cursor.execute(sql,("reinicio_dia",fecha,0,0,0))
+
+        conexion.commit()
+        cursor.close()
+        conexion.close()
+
+        return "reiniciado dia"
+
+    except Exception as e:
+        return str(e)
 
 
 @app.route("/reiniciar_actuales")
 def reiniciar_actuales():
 
-    autos_dia = obtener_autos_dia()
+    try:
+        autos_dia = obtener_autos_dia()
 
-    guardar_evento(
-        "reset_actuales",
-        0,
-        0,
-        autos_dia
-    )
+        conexion = mysql.connector.connect(**DB_CONFIG)
+        cursor = conexion.cursor()
 
-    return "reiniciado actuales"
+        fecha = datetime.now()
 
+        sql = """
+        INSERT INTO registros
+        (tipo, fecha, distancia_entrada, distancia_salida, autos)
+        VALUES (%s,%s,%s,%s,%s)
+        """
+
+        cursor.execute(sql,("reset_actuales",fecha,0,0,autos_dia))
+
+        conexion.commit()
+        cursor.close()
+        conexion.close()
+
+        return "reiniciado actuales"
+
+    except Exception as e:
+        return str(e)
 
 # =============================
 # PANEL
