@@ -135,26 +135,47 @@ def panel():
 
     html=f"""
     <html>
-    <meta http-equiv="refresh" content="3">
+    <head>
+    <title>Estacionamiento</title>
+
+    <style>
+    body {{font-family:Arial;background:#f4f4f4;padding:20px}}
+    table {{background:white;border-collapse:collapse;width:100%}}
+    th,td {{padding:10px;border:1px solid #ddd;text-align:center}}
+    th {{background:#222;color:white}}
+    button {{padding:8px 15px;margin:5px}}
+    input {{padding:8px}}
+    </style>
+
+    </head>
+
+    <body>
+
     <h1>Estacionamiento</h1>
+
+    <button onclick="location.reload()">Actualizar</button>
+
+    <br><br>
 
     Estado: {"ABIERTO" if estado else "CERRADO"}<br>
     Autos actuales: {actuales}/{MAX_AUTOS}<br>
     Autos dia: {dia}<br><br>
 
-    <a href=/abrir>Abrir</a>
-    <a href=/cerrar>Cerrar</a>
-    <a href=/reiniciar_dia>Reiniciar dia</a>
-    <a href=/reiniciar_actuales>Reiniciar actuales</a>
+    <a href=/abrir><button>Abrir</button></a>
+    <a href=/cerrar><button>Cerrar</button></a>
+    <a href=/reiniciar_dia><button>Reiniciar dia</button></a>
+    <a href=/reiniciar_actuales><button>Reiniciar actuales</button></a>
 
     <br><br>
 
     <form>
-    <input name=buscar>
+    <input name=buscar placeholder="Buscar">
     <button>Buscar</button>
     </form>
 
-    <table border=1>
+    <br>
+
+    <table>
     <tr>
     <th>ID</th>
     <th>Tipo</th>
@@ -180,7 +201,7 @@ def panel():
         </tr>
         """
 
-    html+="</table></html>"
+    html+="</table></body></html>"
 
     return html
 
