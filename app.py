@@ -87,8 +87,12 @@ def sensor():
         return jsonify({"accion":"abrir"})
 
     if tipo=="salida":
-        guardar("salida",0,d,dia)
-        return jsonify({"accion":"abrir"})
+
+    if actuales <= 0:
+        return jsonify({"accion":"vacio"})
+
+    guardar("salida",0,d,dia)
+    return jsonify({"accion":"abrir"})
 
     return jsonify({"accion":"error"})
 
