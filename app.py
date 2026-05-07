@@ -7,9 +7,9 @@ app = Flask(__name__)
 MAX_AUTOS = 20
 estado = True
 
-# ---------------------------
-# CONEXIÓN MYSQL RAILWAY
-# ---------------------------
+# ------------------------
+# MYSQL RAILWAY
+# ------------------------
 DB = {
     "host": "shortline.proxy.rlwy.net",
     "port": 47707,
@@ -18,9 +18,9 @@ DB = {
     "database": "railway"
 }
 
-# ---------------------------
+# ------------------------
 # CONSULTAS MYSQL
-# ---------------------------
+# ------------------------
 def query(sql, valores=None):
     con = mysql.connector.connect(**DB)
     cur = con.cursor(dictionary=True)
@@ -41,15 +41,28 @@ def query(sql, valores=None):
 
     return data
 
-# ---------------------------
+
+# ------------------------
 # AUTOS ACTUALES
-# ---------------------------
+# SOLO DESDE ÚLTIMO RESET
+# ------------------------
 def autos_actuales():
-    filas = query("SELECT tipo FROM registros ORDER BY id")
+
+    filas = query("""
+        SELECT tipo
+        FROM registros
+        WHERE id >= (
+            SELECT IFNULL(MAX(id),0)
+            FROM registros
+            WHERE tipo='reset_actuales'
+        )
+        ORDER BY id
+    """)
 
     total = 0
 
     for f in filas:
+
         tipo = str(f["tipo"]).strip().lower()
 
         if tipo == "entrada":
@@ -58,26 +71,30 @@ def autos_actuales():
         elif tipo == "salida":
             total -= 1
 
-        elif tipo == "reset_actuales":
-            total = 0
-
     return max(total, 0)
 
-# ---------------------------
+
+# ------------------------
 # AUTOS DEL DÍA
-# ---------------------------
+# ------------------------
 def autos_dia():
-    r = query("SELECT autos FROM registros ORDER BY id DESC LIMIT 1")
+    r = query("""
+        SELECT autos
+        FROM registros
+        ORDER BY id DESC
+        LIMIT 1
+    """)
 
     if r:
         return r[0]["autos"]
-    else:
-        return 0
+    return 0
 
-# ---------------------------
+
+# ------------------------
 # GUARDAR EVENTO
-# ---------------------------
+# ------------------------
 def guardar(tipo, entrada, salida, autos):
+
     query("""
         INSERT INTO registros
         (tipo, fecha, distancia_entrada, distancia_salida, autos)
@@ -90,17 +107,20 @@ def guardar(tipo, entrada, salida, autos):
         autos
     ))
 
-# ---------------------------
+
+# ------------------------
 # API ESP32
-# ---------------------------
+# ------------------------
 @app.route("/sensor", methods=["POST"])
 def sensor():
+
     global estado
 
     if not estado:
         return jsonify({"accion": "cerrado"})
 
     data = request.json
+
     tipo = data["tipo"]
     distancia = data["distancia"]
 
@@ -114,6 +134,7 @@ def sensor():
             return jsonify({"accion": "lleno"})
 
         guardar("entrada", distancia, 0, dia + 1)
+
         return jsonify({"accion": "abrir"})
 
     # SALIDA
@@ -123,18 +144,21 @@ def sensor():
             return jsonify({"accion": "vacio"})
 
         guardar("salida", 0, distancia, dia)
+
         return jsonify({"accion": "abrir"})
 
     return jsonify({"accion": "error"})
 
-# ---------------------------
+
+# ------------------------
 # BOTONES
-# ---------------------------
+# ------------------------
 @app.route("/abrir")
 def abrir():
     global estado
     estado = True
     return "Estacionamiento abierto"
+
 
 @app.route("/cerrar")
 def cerrar():
@@ -142,19 +166,26 @@ def cerrar():
     estado = False
     return "Estacionamiento cerrado"
 
+
 @app.route("/reiniciar_dia")
 def reiniciar_dia():
+
     guardar("reinicio_dia", 0, 0, 0)
+
     return "Autos del día reiniciados"
+
 
 @app.route("/reiniciar_actuales")
 def reiniciar_actuales():
+
     guardar("reset_actuales", 0, 0, autos_dia())
+
     return "Autos actuales reiniciados"
 
-# ---------------------------
+
+# ------------------------
 # PANEL WEB
-# ---------------------------
+# ------------------------
 @app.route("/")
 def panel():
 
@@ -165,7 +196,8 @@ def panel():
 
     if buscar:
         datos = query("""
-            SELECT * FROM registros
+            SELECT *
+            FROM registros
             WHERE id LIKE %s
             OR tipo LIKE %s
             OR fecha LIKE %s
@@ -177,7 +209,8 @@ def panel():
         ))
     else:
         datos = query("""
-            SELECT * FROM registros
+            SELECT *
+            FROM registros
             ORDER BY id DESC
             LIMIT 50
         """)
@@ -257,11 +290,12 @@ def panel():
             <th>Fecha</th>
             <th>Entrada</th>
             <th>Salida</th>
-            <th>Autos Día</th>
+            <th>Autos día</th>
         </tr>
     """
 
     for d in datos:
+
         fecha_mexico = d["fecha"] - timedelta(hours=6)
 
         html += f"""
